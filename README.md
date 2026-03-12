@@ -38,15 +38,13 @@ A job coordinator script (`submission_coordinator.py`) creates a JSON configurat
 
 ## Features
 
-- **Automatic task distribution** – no need to manually split horns/hours.
-- **Supports SLURM clusters** – generates submission scripts on the fly.
+- **Automatic task distribution**- Starting from the MPI topology, it automatically distributes tasks evenly across two levels.
+- **Supports SLURM clusters** - automatically submits jobs
 - **Local execution** – for testing on workstations with `mpiexec`.
 - **Configurable analysis** – number of horns, hours, bins, date, paths, and optional parameters.
 - **Memory‑mapped I/O** – handles large datasets without loading everything into RAM.
 - **Final HDF5 output** – compressed, self‑describing file with all results.
 - **Waterfall plots** – visualise χ² and/or RMSE matrices for selected horns.
-- **Graceful handling of missing/invalid data** – bins with insufficient samples are marked as `NaN`.
-
 ---
 
 ## Requirements
@@ -72,7 +70,8 @@ A job coordinator script (`submission_coordinator.py`) creates a JSON configurat
 
 ## Installation
 
-add later
+(observation: add later)
+
 ## Usage
 
 ### Basic example
@@ -114,13 +113,12 @@ inside the respective observation and expectation directories.
 
 ### Running on a cluster (SLURM)
 
+(observation: not yet tested in a cluster)
 Set `slurm=True` in `run_parallel`. The coordinator will:
 
 - Write a JSON config file (`config_job_<id>.json`)
 - Generate a SLURM submission script (`submit_job_<id>.sh`)
 - Submit it with `sbatch`
-
-Make sure to edit the generated script to load required modules and activate your Python environment (the coordinator adds commented lines as placeholders).
 
 ### Running locally with MPI
 
@@ -128,7 +126,7 @@ Set `slurm=False`. The coordinator will execute:
 
 `mpiexec -n <total_num_process> python mpi_worker.py <config_file>`
 
-on the local machine. Ensure mpiexec is in your PATH and your environment is properly configured.
+on the local machine. Ensure mpiexec is properly configured.
 
 ## Output
 
@@ -173,5 +171,5 @@ This design minimises inter‑process communication and file contention, because
 
 Author
 
-Nicolli Soares
+Nicolli Soares P.
 [11/03/2026]
