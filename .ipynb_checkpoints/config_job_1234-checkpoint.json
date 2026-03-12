@@ -1,0 +1,15 @@
+{
+    "n_horns": 140,
+    "n_hours": 24,
+    "n_bins": 30,
+    "obs_date": "20200301",
+    "base_results_path": "/data/NSOARES/Chi2_results/",
+    "base_obsTOD_path": "/data/NSOARES/hide_seek/output_test_parallel_140/2020/03/01/",
+    "base_expTOD_path": "/data/NSOARES/hide_seek/output_test_for_chi2_lib/2020/03/01/",
+    "dof": null,
+    "analysis_identifier": 1234,
+    "show_process_info": true,
+    "rmse": true,
+    "plot_waterfalls": true,
+    "horns_to_plot": null
+}
