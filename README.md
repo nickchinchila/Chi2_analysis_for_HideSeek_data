@@ -14,7 +14,6 @@
   - [Running locally with MPI](#running-locally-with-mpi)
 - [Output](#output)
 - [Parallelization strategy](#parallelization-strategy)
-- [Important notes](#important-notes)
 - [Author](#author)
 
 ---
