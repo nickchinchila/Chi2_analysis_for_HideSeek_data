@@ -48,6 +48,7 @@ def main():
         base_results_path=params['base_results_path'],
         base_obsTOD_path=params['base_obsTOD_path'],
         base_expTOD_path=params['base_expTOD_path'],
+		err_data=params['err_data'],
         dof=params.get('dof'),                           # optional degrees of freedom
         analysis_identifier=params.get('analysis_identifier'),  # optional job ID
         show_process_info=params.get('show_process_info', False),

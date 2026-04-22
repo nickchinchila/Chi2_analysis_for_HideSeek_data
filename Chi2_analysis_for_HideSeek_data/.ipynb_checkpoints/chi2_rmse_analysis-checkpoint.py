@@ -16,7 +16,6 @@ import numpy as np
 import h5py
 import copy
 import matplotlib.pyplot as plt
-from scipy.stats import chisquare
 from pathlib import Path
 from matplotlib.colors import LogNorm
 from mpi4py import MPI
@@ -31,7 +30,7 @@ class Chi2_for_Hide_Seek_data:
 	"""
 	
 	def __init__(self, n_horns, n_hours, n_bins, obs_date, base_results_path, base_obsTOD_path, 
-				 base_expTOD_path, dof = None, analysis_identifier = random.randint(0, 1000),
+				 base_expTOD_path, err_data, dof = None, analysis_identifier = random.randint(0, 1000),
 				 show_process_info = False, rmse = False, min_valid_samples = 10):
 		"""
 		Initializes the analysis environment, sets up MPI communicators, 
@@ -54,6 +53,8 @@ class Chi2_for_Hide_Seek_data:
 			Directory containing observed TOD files (input).
 		base_expTOD_path : str or Path
 			Directory containing expected TOD files (input).
+		err_data : array type
+			Array containing the error of the observed TOD data. 
 		dof : int, optional
 			Degrees of freedom for chi-square test. If None, uses (number_data_points - 1).
 		analysis_identifier : int, optional
@@ -79,6 +80,7 @@ class Chi2_for_Hide_Seek_data:
 		self.date = obs_date
 		self.base_tod1_path = base_obsTOD_path
 		self.base_tod2_path = base_expTOD_path
+		self.err_data = err_data
 		self.dof = dof
 		self.analysis_idf = analysis_identifier
 		self.process_info = show_process_info
@@ -104,6 +106,7 @@ class Chi2_for_Hide_Seek_data:
 		# Initializing empty numpy memmaps
 		if self.world_rank == 0:
 			self.create_memmaps()
+		self.comm.Barrier()
 		
 		# Extract mpi topology and joint the processes per node
 		self._setup_mpi_topology()
@@ -115,7 +118,7 @@ class Chi2_for_Hide_Seek_data:
 		the same physical node, storing the local ranks, 
 		local rank index, and node size. This allows for an 
 		optimized two-level parallelization strategy (horns and hours).
-	    """
+		"""
 		
 		# Extract node name
 		self.hostname = MPI.Get_processor_name()
@@ -147,13 +150,13 @@ class Chi2_for_Hide_Seek_data:
 	def tasks_coordinator(self):
 
 		"""
-	    Distribute (horn, hour) pairs across all MPI processes.
-	    Two-level distribution:
-	    1 - Horns are evenly assigned to nodes (first level).
+		Distribute (horn, hour) pairs across all MPI processes.
+		Two-level distribution:
+		1 - Horns are evenly assigned to nodes (first level).
 		2 - Within each node, hours are evenly assigned to local ranks (second level).
-	    After calling this method, 'self.actual_horns' and 'self.actual_hours'
-	    contain the list of (horn, hour) pairs that the current process must handle.
-	    """
+		After calling this method, 'self.actual_horns' and 'self.actual_hours'
+		contain the list of (horn, hour) pairs that the current process must handle.
+		"""
 		
 		# Horn index
 		all_horns = list(range(self.num_horns))
@@ -202,7 +205,7 @@ class Chi2_for_Hide_Seek_data:
 			# 	Node: {self.actual_node:15s} Local Rank: {self.local_rank:2d} Processing horn={horn}, hour={hour}")
 			try:
 				# Execute chi squared test between two TODs of a corresponding (horn, hour)
-				chi2_per_hour_bin, p_values, dof, rmse_per_hour_bin = self.calculate_chi2_rmse_for_horn_hour(horn, hour)
+				chi2_per_hour_bin, rmse_per_hour_bin = self.calculate_chi2_rmse_for_horn_hour(horn, hour)
 				
 				# Salve data to memmap files
 				self.save_to_memmap(horn, hour, chi2_per_hour_bin, rmse_per_hour_bin)
@@ -218,11 +221,10 @@ class Chi2_for_Hide_Seek_data:
 		data, and computes the statistics per frequency bin.
 
 		Returns ==>
-	    -------
-	    chi2_per_hour_bin : ndarray, shape (n_bins,)
-	    p_values : ndarray, shape (n_bins,)
-	    dof : int
-	    rmse_per_hour_bin : ndarray or None
+		-------
+		chi2_per_hour_bin : ndarray, shape (n_bins,)
+		dof : int
+		rmse_per_hour_bin : ndarray or None
 		"""
 		
 		# Construct the filepath for the observated TOD data
@@ -244,7 +246,7 @@ class Chi2_for_Hide_Seek_data:
 			data_TOD2 = f2['P']['Phase1'][:]  # Shape: (n_bins, time)
 
 		chi2_per_hour_bin = np.zeros(self.num_bins)
-		p_values = np.zeros(self.num_bins)
+		# p_values = np.zeros(self.num_bins)
 		
 		if self.calculate_rmse: 
 			rmse_per_hour_bin = np.zeros(self.num_bins)
@@ -252,7 +254,7 @@ class Chi2_for_Hide_Seek_data:
 			rmse_per_hour_bin = None
 		
 		if self.dof is None:  
-			dof = data_TOD1.shape[1] - 1
+			dof = data_TOD1.shape[1] - 1#- 1 # keep this -1 or not?
 		else:
 			dof = self.dof
 		
@@ -261,39 +263,28 @@ class Chi2_for_Hide_Seek_data:
 
 			obs_data = data_TOD1[freq_idx, :]
 			exp_data = data_TOD2[freq_idx, :]
+
+			residuals = obs_data - exp_data
+			chi2 = np.sum((residuals/ self.err_data)**2)
 			
-			# in testing 
-			mask = exp_data > 0
-			if np.sum(mask) < self.min_valid_samples:
-				chi2_per_hour_bin[freq_idx] = np.nan
-				p_values[freq_idx] = np.nan
-				if self.calculate_rmse:
-					rmse_per_hour_bin[freq_idx] = np.nan
-				continue
-			
-			chi2, p_val = chisquare(
-				f_obs=obs_data[mask], 
-				f_exp=exp_data[mask],
-				ddof=dof
-			)
+			reduced_chi2 = chi2 / dof
 			
 			chi2_per_hour_bin[freq_idx] = chi2
-			p_values[freq_idx] = p_val
 
 			if self.calculate_rmse:
 				rmse = np.sqrt(np.mean((obs_data - exp_data)**2))
 				rmse_per_hour_bin[freq_idx] = rmse
 
-		return chi2_per_hour_bin, p_values, dof, rmse_per_hour_bin
+		return chi2_per_hour_bin, rmse_per_hour_bin
 
 	def create_memmaps(self):
 
 		"""
-	    Create memory-mapped files for chi² and (optionally) RMSE results.
+		Create memory-mapped files for chi² and (optionally) RMSE results.
 	
-	    Files are created with mode 'w+' (overwrite if exists) and stored under
-	    'self.base_memmap_path'. Each horn has its own file, with shape (n_hours, n_bins).
-	    """
+		Files are created with mode 'w+' (overwrite if exists) and stored under
+		'self.base_memmap_path'. Each horn has its own file, with shape (n_hours, n_bins).
+		"""
 			
 		for horn in range(self.num_horns):
 
@@ -315,12 +306,12 @@ class Chi2_for_Hide_Seek_data:
 	def save_to_memmap(self, horn, hour, chi2_per_hour_bin, rmse_per_hour_bin):
 
 		"""
-	    Write the results for a single (horn, hour) into the memory-mapped files.
-	    Opens the memmap file for the given horn in 'r+' mode, updates the row
-	    corresponding to `hour`, and flushes changes to disk. This allows multiple
-	    processes to write concurrently to different rows of the same file without
-	    conflicts (since each process writes to a distinct hour index).
-	    """
+		Write the results for a single (horn, hour) into the memory-mapped files.
+		Opens the memmap file for the given horn in 'r+' mode, updates the row
+		corresponding to `hour`, and flushes changes to disk. This allows multiple
+		processes to write concurrently to different rows of the same file without
+		conflicts (since each process writes to a distinct hour index).
+		"""
 		
 		chi2_path = os.path.join(self.base_memmap_path, f"chi2_{horn}.dat") 
 		
@@ -353,13 +344,13 @@ class Chi2_for_Hide_Seek_data:
 	def generate_waterfalls(self, horns_to_plot):
 
 		"""
-	    Generate waterfall plots for specified horns. Only rank 0 does this.
+		Generate waterfall plots for specified horns. Only rank 0 does this.
 	
-	    Parameters ==>
-	    ----------
-	    horns_to_plot : list of int or None
-	        If None, plot all horns.
-	    """
+		Parameters ==>
+		----------
+		horns_to_plot : list of int or None
+			If None, plot all horns.
+		"""
 		
 		# Only Rank 0 should plot to avoid filesystem collision
 		if self.world_rank != 0:
@@ -381,11 +372,11 @@ class Chi2_for_Hide_Seek_data:
 	def one_wtll(self, horn):
 
 		"""
-	    Create a waterfall plot for a single horn.
-	    Loads chi² and (if enabled) RMSE arrays from memmap files.
-	    Uses logarithmic scale for chi² and handles NaN values (shown as black).
-	    Saves the figure as PNG under 'self.base_waterfall_path'.
-	    """
+		Create a waterfall plot for a single horn.
+		Loads chi² and (if enabled) RMSE arrays from memmap files.
+		Uses logarithmic scale for chi² and handles NaN values (shown as black).
+		Saves the figure as PNG under 'self.base_waterfall_path'.
+		"""
 
 		chi2_path = os.path.join(self.base_memmap_path, f"chi2_{horn}.dat")
 		
@@ -421,7 +412,7 @@ class Chi2_for_Hide_Seek_data:
 
 		# Copy colormap and set bad values (NaNs) to black
 		cmap_chi2 = copy.copy(plt.cm.viridis)
-		cmap_chi2.set_bad(color='yellow')
+		cmap_chi2.set_bad(color='black')
 		
 		# Plot Chi2 waterfall
 		im1 = ax1.imshow(chi2_array, aspect='auto', cmap=cmap_chi2, 
@@ -467,12 +458,12 @@ class Chi2_for_Hide_Seek_data:
 	def save_to_hdf5(self):
 		
 		"""
-	    Consolidate all memmap data into a single compressed HDF5 file.
-	    Only rank 0 performs this step after all processes have finished writing.
-	    Creates groups '/chi2' and '/rmse' (if rmse=True). Each dataset is named
-	    'horn_XXX' and compressed with gzip level 4. Metadata attributes document
-	    the handling of missing data (NaN).
-	    """
+		Consolidate all memmap data into a single compressed HDF5 file.
+		Only rank 0 performs this step after all processes have finished writing.
+		Creates groups '/chi2' and '/rmse' (if rmse=True). Each dataset is named
+		'horn_XXX' and compressed with gzip level 4. Metadata attributes document
+		the handling of missing data (NaN).
+		"""
 		
 		if self.world_rank != 0:
 			return
@@ -539,9 +530,9 @@ class Chi2_for_Hide_Seek_data:
 	def cleanup_memmaps(self):
 
 		"""
-	    Delete all temporary .dat files created in the memmaps directory.
-	    Called only by rank 0 after HDF5 consolidation.
-	    """
+		Delete all temporary .dat files created in the memmaps directory.
+		Called only by rank 0 after HDF5 consolidation.
+		"""
 		
 		if self.world_rank == 0:
 			# Searching for memmaps files
@@ -554,11 +545,11 @@ class Chi2_for_Hide_Seek_data:
 	def run(self):
 		
 		"""
-	    Main execution flow for all processes.
-	    1 - Coordinate tasks (assign horn/hour pairs).
-	    2 - Execute analysis (compute chi²/RMSE and save to memmaps).
-	    3 - Wait for all processes to finish (Barrier).
-	    """
+		Main execution flow for all processes.
+		1 - Coordinate tasks (assign horn/hour pairs).
+		2 - Execute analysis (compute chi²/RMSE and save to memmaps).
+		3 - Wait for all processes to finish (Barrier).
+		"""
 		
 		self.tasks_coordinator()
 		
@@ -569,21 +560,21 @@ class Chi2_for_Hide_Seek_data:
 	def finish_analysis(self, horns_to_plot=None, plot_waterfalls=False):
 		
 		"""
-	    Finalize the analysis after all parallel work is done.
-	    This method should be called after 'run'. It performs post-processing
-	    tasks exclusively on rank 0:
-	        - (Optionally) generate waterfall plots.
-	        - Consolidate memmap data into HDF5.
-	        - Clean up temporary memmap files.
-	    A final barrier ensures that no worker exits before cleanup is complete.
+		Finalize the analysis after all parallel work is done.
+		This method should be called after 'run'. It performs post-processing
+		tasks exclusively on rank 0:
+			- (Optionally) generate waterfall plots.
+			- Consolidate memmap data into HDF5.
+			- Clean up temporary memmap files.
+		A final barrier ensures that no worker exits before cleanup is complete.
 	
-	    Parameters ==>
-	    ----------
-	    horns_to_plot : list of int, optional
-	        Which horns to plot. If None, plot all.
-	    plot_waterfalls : bool
-	        Whether to generate waterfall plots.
-	    """
+		Parameters ==>
+		----------
+		horns_to_plot : list of int, optional
+			Which horns to plot. If None, plot all.
+		plot_waterfalls : bool
+			Whether to generate waterfall plots.
+		"""
 		self.comm.Barrier()
  
 		if self.world_rank == 0:

@@ -20,6 +20,7 @@ analysis_parameters = {
 	"base_results_path": "/your_absolute_base_path/",
 	"base_obsTOD_path": "/your_absolute_obs_TOD_data_path/",
 	"base_expTOD_path": "/your_absolute_exp_TOD_data_path/",
+	"err_data": np.ones((30,)),
 	"dof": None,                                             # optional parameter with standard value "None"
 	"analysis_identifier": 1234,                             # optional parameter with standard value as a random number
 	"show_process_info": True,                               # optional parameter with standard value "False"
@@ -32,7 +33,7 @@ analysis_parameters = {
 # Run Chi2_analysis_for_H&S_data library
 run_parallel(analysis_parameters,                         
 				 num_nodes=2,                                # number of nodes you want to use
-				 total_num_process=3360)                     # total number of processes you want to run in parallel
+				 total_num_process=60)                     # total number of processes you want to run in parallel
 
 #--------------------------------------------------------------------------------------------------
 # Your code here (can be a serial code or parallel code)

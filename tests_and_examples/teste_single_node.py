@@ -17,9 +17,10 @@ analysis_parameters = {
 	"n_hours": 24,
 	"n_bins": 30, 
 	"obs_date": "20200301",                                  # data format: yyyymmdd
-	"base_results_path": "/data/NSOARES/Chi2_results/",
-	"base_obsTOD_path": "/data/NSOARES/hide_seek/output_test_parallel_140/2020/03/01/",
-	"base_expTOD_path": "/data/NSOARES/hide_seek/output_test_for_chi2_lib/2020/03/01/",
+	"base_results_path": "/Chi2_results/",
+	"base_obsTOD_path": "/tests_and_examples/input_obs_data_for_testing/2020/03/01/",
+	"base_expTOD_path": "/tests_and_examples/input_exp_data_for_testing/2020/03/01/",
+	"err_data": array,
 	"dof": None,                                             # optional parameter with standard value "None"
 	"analysis_identifier":,                             # optional parameter with standard value as a random number
 	"show_process_info": False,                               # optional parameter with standard value "False"

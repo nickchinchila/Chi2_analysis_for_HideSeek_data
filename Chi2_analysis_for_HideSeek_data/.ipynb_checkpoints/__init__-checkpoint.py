@@ -2,7 +2,7 @@
 Chi2 Analysis for Hide & Seek Data Library
 ==========================================
 
-This library provides a parallel framework for performing chi-square goodness-of-fit 
+This library provides a parallel framework for performing chi-square
 and RMSE analysis between observed and expected Time-Ordered Data (TOD) from the 
 HIDE & SEEK data. It is designed to handle large datasets efficiently using MPI 
 for parallelism, numpy memmaps for temporary storage, and 
