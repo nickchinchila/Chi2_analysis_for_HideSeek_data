@@ -1,5 +1,6 @@
 .ipynb_checkpoints/
 __pycache__/
 *.pyc
+*.h5
 input_exp_data_for_testing/
 input_obs_data_for_testing/
