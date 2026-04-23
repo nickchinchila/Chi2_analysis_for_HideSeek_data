@@ -31,7 +31,7 @@ class Chi2_for_Hide_Seek_data:
 	
 	def __init__(self, n_horns, n_hours, n_bins, obs_date, base_results_path, base_obsTOD_path, 
 				 base_expTOD_path, err_data, dof = None, analysis_identifier = random.randint(0, 1000),
-				 show_process_info = False, rmse = False, min_valid_samples = 10):
+				 show_process_info = False, rmse = False):
 		"""
 		Initializes the analysis environment, sets up MPI communicators, 
 		defines data attributes, creates the output directory structure, 
@@ -63,9 +63,6 @@ class Chi2_for_Hide_Seek_data:
 			If True, prints debug info per process.
 		rmse : bool,  optional
 			If True, also compute RMSE alongside chi-square.
-		min_valid_samples : int, optional
-			Minimum number of valid (positive) expected data required per bin;
-			otherwise the bin is marked as NaN.
 		"""
 		
 		# Initializing MPI
@@ -85,7 +82,7 @@ class Chi2_for_Hide_Seek_data:
 		self.analysis_idf = analysis_identifier
 		self.process_info = show_process_info
 		self.calculate_rmse = rmse
-		self.min_valid_samples = min_valid_samples
+		# self.min_valid_samples = min_valid_samples
 
 		# Base name for the BINGO TOD files
 		self.base_tod_fname = "bingo_tod_horn_{horn}_{date}_{hour:02d}0000.h5"
@@ -205,10 +202,10 @@ class Chi2_for_Hide_Seek_data:
 			# 	Node: {self.actual_node:15s} Local Rank: {self.local_rank:2d} Processing horn={horn}, hour={hour}")
 			try:
 				# Execute chi squared test between two TODs of a corresponding (horn, hour)
-				chi2_per_hour_bin, rmse_per_hour_bin = self.calculate_chi2_rmse_for_horn_hour(horn, hour)
+				chi2_per_hour_bin, rmse_per_hour_bin, dof_per_hour_bin = self.calculate_chi2_rmse_for_horn_hour(horn, hour)
 				
-				# Salve data to memmap files
-				self.save_to_memmap(horn, hour, chi2_per_hour_bin, rmse_per_hour_bin)
+				# Save data to memmap files
+				self.save_to_memmap(horn, hour, chi2_per_hour_bin, rmse_per_hour_bin, dof_per_hour_bin)
 				
 			except Exception as e:
 				print(f"Global ranking process {self.world_rank}: error processing horn {horn}, hour {hour}: {e}")
@@ -246,6 +243,7 @@ class Chi2_for_Hide_Seek_data:
 			data_TOD2 = f2['P']['Phase1'][:]  # Shape: (n_bins, time)
 
 		chi2_per_hour_bin = np.zeros(self.num_bins)
+		dof_per_hour_bin = np.zeros(self.num_bins)
 		# p_values = np.zeros(self.num_bins)
 		
 		if self.calculate_rmse: 
@@ -270,12 +268,13 @@ class Chi2_for_Hide_Seek_data:
 			reduced_chi2 = chi2 / dof
 			
 			chi2_per_hour_bin[freq_idx] = chi2
+			dof_per_hour_bin[freq_idx] = dof
 
 			if self.calculate_rmse:
 				rmse = np.sqrt(np.mean((obs_data - exp_data)**2))
 				rmse_per_hour_bin[freq_idx] = rmse
 
-		return chi2_per_hour_bin, rmse_per_hour_bin
+		return chi2_per_hour_bin, rmse_per_hour_bin, dof_per_hour_bin
 
 	def create_memmaps(self):
 
@@ -295,6 +294,13 @@ class Chi2_for_Hide_Seek_data:
 								  shape=(self.num_hours, self.num_bins))
 			del chi2_mmap
 
+			dof_path = os.path.join(self.base_memmap_path, f"dof_{horn}.dat")
+			dof_mmap = np.memmap(dof_path,
+								 dtype='float64',
+								 mode='w+',
+								 shape=(self.num_hours, self.num_bins))
+			del dof_mmap
+
 			if self.calculate_rmse:
 				rmse_path = os.path.join(self.base_memmap_path, f"rmse_{horn}.dat")
 				rmse_mmap = np.memmap(rmse_path, 
@@ -303,7 +309,7 @@ class Chi2_for_Hide_Seek_data:
 									  shape=(self.num_hours, self.num_bins))
 				del rmse_mmap
 
-	def save_to_memmap(self, horn, hour, chi2_per_hour_bin, rmse_per_hour_bin):
+	def save_to_memmap(self, horn, hour, chi2_per_hour_bin, rmse_per_hour_bin, dof_per_hour_bin):
 
 		"""
 		Write the results for a single (horn, hour) into the memory-mapped files.
@@ -324,6 +330,20 @@ class Chi2_for_Hide_Seek_data:
 
 		chi2_mmap[hour, :] = chi2_per_hour_bin
 		chi2_mmap.flush()
+		del chi2_mmap
+
+		dof_path = os.path.join(self.base_memmap_path, f"dof_{horn}.dat")
+
+		dof_mmap = np.memmap(
+			dof_path,
+			dtype='float64',
+			mode='r+',
+			shape=(self.num_hours, self.num_bins)
+		)
+
+		dof_mmap[hour, :] = dof_per_hour_bin
+		dof_mmap.flush()
+		del dof_mmap
 
 		if self.calculate_rmse and rmse_per_hour_bin is not None:
 			rmse_path = os.path.join(self.base_memmap_path, f"rmse_{horn}.dat")
@@ -337,9 +357,7 @@ class Chi2_for_Hide_Seek_data:
 			
 			rmse_mmap[hour, :] = rmse_per_hour_bin
 			rmse_mmap.flush()
-			del rmse_mmap 
-			
-		del chi2_mmap
+			del rmse_mmap
 
 	def generate_waterfalls(self, horns_to_plot):
 
@@ -472,6 +490,7 @@ class Chi2_for_Hide_Seek_data:
 		
 		with h5py.File(hdf5_path, 'w') as h5f:
 			chi2_group = h5f.create_group('chi2')
+			dof_group  = h5f.create_group('dof')
 			
 			if self.calculate_rmse:
 				rmse_group = h5f.create_group('rmse')
@@ -492,15 +511,32 @@ class Chi2_for_Hide_Seek_data:
 													compression='gzip',
 													compression_opts=4)
 					
-					# Add metadata attributes for missing data documentation
-					dset_chi2.attrs['missing_data_flag'] = 'NaN'
-					dset_chi2.attrs['min_valid_samples_threshold'] = self.min_valid_samples
-					dset_chi2.attrs['description'] = 'NaN values indicate bins with insufficient samples for valid statistics.'
-					
 					del chi2_data
 					
 				except FileNotFoundError as e:
 					print(f"Error loading Chi² memory-mapped file for HDF5 consolidation (Horn {horn}): {e}")
+
+				# Process and save DoF data
+				dof_mmap_path = Path(self.base_memmap_path) / f"dof_{horn}.dat"
+
+				try:
+					dof_data = np.memmap(dof_mmap_path, dtype='float64', mode='r+',
+										 shape=(self.num_hours, self.num_bins))
+					dof_array = np.array(dof_data)
+
+					dset_dof = dof_group.create_dataset(f'horn_{horn:03d}',
+													data=dof_array,
+													compression='gzip',
+													compression_opts=4)
+					dset_dof.attrs['description'] = (
+						'Degrees of freedom used in the reduced chi-square calculation '
+						'for each (hour, frequency bin) pair.'
+					)
+
+					del dof_data
+
+				except FileNotFoundError as e:
+					print(f"Error loading DoF memory-mapped file for HDF5 consolidation (Horn {horn}): {e}")
 
 				# Process and save RMSE data
 				if self.calculate_rmse:
@@ -518,9 +554,9 @@ class Chi2_for_Hide_Seek_data:
 															compression='gzip',
 															compression_opts=4)
 							
-							# Add metadata attributes for missing data documentation
-							dset_rmse.attrs['missing_data_flag'] = 'NaN'
-							dset_rmse.attrs['min_valid_samples_threshold'] = self.min_valid_samples
+							# # Add metadata attributes for missing data documentation
+							# dset_rmse.attrs['missing_data_flag'] = 'NaN'
+							# dset_rmse.attrs['min_valid_samples_threshold'] = self.min_valid_samples
 							
 							del rmse_data
 							

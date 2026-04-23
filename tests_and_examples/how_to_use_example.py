@@ -27,7 +27,6 @@ analysis_parameters = {
 	"rmse": False,                                           # optional parameter with standard value "False"
 	"plot_waterfalls": True,                                 # optional parameter with standard value "False"
 	"horns_to_plot": None,                                   # optional parameter with standard value "None"
-	"min_valid_samples": 10
 }
 
 # Run Chi2_analysis_for_H&S_data library
