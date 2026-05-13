@@ -265,7 +265,7 @@ class Chi2_for_Hide_Seek_data:
 			residuals = obs_data - exp_data
 			chi2 = np.sum((residuals/ self.err_data)**2)
 			
-			reduced_chi2 = chi2 / dof
+			# reduced_chi2 = chi2 / dof
 			
 			chi2_per_hour_bin[freq_idx] = chi2
 			dof_per_hour_bin[freq_idx] = dof

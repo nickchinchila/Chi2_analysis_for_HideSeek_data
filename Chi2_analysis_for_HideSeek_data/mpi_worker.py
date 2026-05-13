@@ -53,7 +53,6 @@ def main():
         analysis_identifier=params.get('analysis_identifier'),  # optional job ID
         show_process_info=params.get('show_process_info', False),
         rmse=params.get('rmse', False),
-        min_valid_samples=params.get('min_valid_samples', 10)
     )
     
     # Execute the main parallel analysis (distributes work across MPI ranks)

@@ -67,11 +67,11 @@ def run_parallel(params, num_nodes=2, total_num_process=64, slurm=True):
         
         with open(slurm_script_name, 'w') as f:
             f.write("#!/bin/bash\n")
-            f.write(f"#SBATCH --job-name=chi2_analysis_{job_id}\n")
-            f.write(f"#SBATCH --nodes={num_nodes}\n")
-            f.write(f"#SBATCH --ntasks={total_num_process}\n")
-            f.write(f"#SBATCH --output=slurm-%j.out\n")
-            f.write(f"#SBATCH --error=slurm-%j.err\n")
+            # f.write(f"#SBATCH --job-name=chi2_analysis_{job_id}\n")
+            # f.write(f"#SBATCH --nodes={num_nodes}\n")
+            # f.write(f"#SBATCH --ntasks={total_num_process}\n")
+            # f.write(f"#SBATCH --output=slurm-%j.out\n")
+            # f.write(f"#SBATCH --error=slurm-%j.err\n")
             f.write("\n")
             
             # (Optional) Add module loads and virtual environment activation here if needed
@@ -81,9 +81,9 @@ def run_parallel(params, num_nodes=2, total_num_process=64, slurm=True):
             # f.write("\n")
             
             # Launch the parallel job using srun
-            f.write(f"srun --mpi=pmix python {worker_script} {config_filename}\n")
+            f.write(f"srun --mpi=pmix -n 4 --cpus-per-task=48 python {worker_script} {config_filename}\n")
 
-        cmd = ['sbatch', slurm_script_name]
+        cmd = ['bash', slurm_script_name]
         print(f"Generated SLURM script: {slurm_script_name}")
         
     else:
