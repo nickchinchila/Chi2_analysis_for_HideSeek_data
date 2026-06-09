@@ -30,7 +30,7 @@ class Chi2_for_Hide_Seek_data:
 	"""
 	
 	def __init__(self, n_horns, n_hours, n_bins, obs_date, base_results_path, base_obsTOD_path, 
-				 base_expTOD_path, err_data, dof = None, analysis_identifier = random.randint(0, 1000),
+				 base_expTOD_path, err_data, dof = None, analysis_identifier = None,
 				 show_process_info = False, rmse = False):
 		"""
 		Initializes the analysis environment, sets up MPI communicators, 
@@ -77,8 +77,9 @@ class Chi2_for_Hide_Seek_data:
 		self.date = obs_date
 		self.base_tod1_path = base_obsTOD_path
 		self.base_tod2_path = base_expTOD_path
-		self.err_data = err_data
+		self.err_data = np.array(err_data)
 		self.dof = dof
+		if analysis_identifier is None: analysis_identifier = random.randint(0, 1000)
 		self.analysis_idf = analysis_identifier
 		self.process_info = show_process_info
 		self.calculate_rmse = rmse
