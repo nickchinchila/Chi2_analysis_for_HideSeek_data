@@ -69,7 +69,7 @@ A job coordinator script (`submission_coordinator.py`) creates a JSON configurat
 
 ## Installation
 
-(observation: add later)
+It will be added later.
 
 ## Usage
 
@@ -101,9 +101,10 @@ Create a script similar to `how_to_use_example.py` where the parameters are:
 - `show_process_info` : bool, optional (Not active)  
   If True, prints debug info per process.  
 - `rmse` : bool, optional  
-  If True, also compute RMSE alongside chi-square.  
-- `min_valid_samples` : int, optional  
-  Minimum number of valid (positive) expected data required per bin; otherwise the bin is marked as NaN.  
+  If True, also compute RMSE alongside chi-square.
+- `plot_waterfalls`: bool, optional. If not provided the waterfalls won't be plotted.
+			"horns_to_plot": None,
+- `horns_to_plot`: list of int, optional. List of which horns to plot. If None, plot all.
 
 **File naming convention**  
 The library expects TOD files named as:

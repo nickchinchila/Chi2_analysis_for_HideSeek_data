@@ -215,8 +215,8 @@ class Chi2_for_Hide_Seek_data:
 
 		"""
 		Main method to calculate the Chi-squared test and Root Mean Square Error (RMSE).
-		Reads the respective HDF5 TOD files, applies a mask for valid (greater than zero) ## the definition of valid data requires a better analysis ##
-		data, and computes the statistics per frequency bin.
+		Reads the respective HDF5 TOD files, ## the definition of valid data requires a better analysis ##
+		and computes the statistics per frequency bin.
 
 		Returns ==>
 		-------
@@ -263,8 +263,11 @@ class Chi2_for_Hide_Seek_data:
 			obs_data = data_TOD1[freq_idx, :]
 			exp_data = data_TOD2[freq_idx, :]
 
+			n_samples = len(obs_data)
+			err = self.err_data[:n_samples]
+			
 			residuals = obs_data - exp_data
-			chi2 = np.sum((residuals/ self.err_data)**2)
+			chi2 = np.sum((residuals/ err)**2)
 			
 			# reduced_chi2 = chi2 / dof
 			

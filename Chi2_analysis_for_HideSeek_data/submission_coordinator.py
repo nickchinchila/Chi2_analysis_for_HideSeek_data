@@ -77,9 +77,8 @@ def run_parallel(params, num_nodes=2, total_num_process=64, slurm=True):
 			# (Optional) Add module loads and virtual environment activation here if needed
 			# Uncomment and modify as appropriate for your cluster environment
 			# f.write("# module load openmpi\n")
-			f.write("source $(conda info --base)/etc/profile.d/conda.sh\n")
-			f.write("conda activate /data/NSOARES/venvs/hs_env_offline")
-			f.write("\n")
+			# f.write("# source /path/to/venv/bin/activate\n")
+			# f.write("\n")
 	
 			# Launch the parallel job using srun
 			f.write(f"srun --mpi=pmix -n 4 --cpus-per-task=48 python {worker_script} {config_filename}\n")
