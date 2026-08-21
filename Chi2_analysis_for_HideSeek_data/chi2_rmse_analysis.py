@@ -382,7 +382,7 @@ class Chi2_for_Hide_Seek_data:
 		if horns_to_plot is None:
 			horns_to_plot = list(range(self.num_horns))
 		
-		# Ensure horns_to_plot is a list (in case a single int was passed)
+		# Ensure horns_to_plot is a list
 		if isinstance(horns_to_plot, int):
 			horns_to_plot = [horns_to_plot]
  
@@ -392,90 +392,98 @@ class Chi2_for_Hide_Seek_data:
 			self.one_wtll(horn)
 
 	def one_wtll(self, horn):
-
 		"""
 		Create a waterfall plot for a single horn.
 		Loads chi² and (if enabled) RMSE arrays from memmap files.
 		Uses logarithmic scale for chi² and handles NaN values (shown as black).
 		Saves the figure as PNG under 'self.base_waterfall_path'.
 		"""
-
 		chi2_path = os.path.join(self.base_memmap_path, f"chi2_{horn}.dat")
-		
+	 
 		try:
-			chi2_data = np.memmap(chi2_path, dtype='float64', mode='r+', shape=(self.num_hours, self.num_bins))
+			# Open read-only: this function only reads results, it should never
+			# be able to modify the memmap file on disk.
+			chi2_data = np.memmap(chi2_path, dtype='float64', mode='r', shape=(self.num_hours, self.num_bins))
 			chi2_array = np.array(chi2_data)
-			
+	 
 		except FileNotFoundError as e:
 			print(f"Error loading Chi² memory-mapped files: {e}")
 			return
-		
+	 
 		if self.calculate_rmse:
 			rmse_path = os.path.join(self.base_memmap_path, f"rmse_{horn}.dat")
 			try:
-				rmse_data = np.memmap(rmse_path, dtype='float64', mode='r+', shape=(self.num_hours, self.num_bins))
+				rmse_data = np.memmap(rmse_path, dtype='float64', mode='r', shape=(self.num_hours, self.num_bins))
 				rmse_array = np.array(rmse_data)
 			except FileNotFoundError as e:
 				print(f"Error loading RMSE memory-mapped files: {e}")
 				return
-			
+	 
 			fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 		else:
 			fig, ax1 = plt.subplots(1, 1, figsize=(10, 6))
-		
-		# Isolate valid values 
+	 
+		# Isolate strictly positive, non-NaN values
 		valid_chi2_data = chi2_array[~np.isnan(chi2_array) & (chi2_array > 0)]
-		
-		if len(valid_chi2_data) > 0:
-			vmin_chi2 = np.min(valid_chi2_data)
-			vmax_chi2 = np.max(valid_chi2_data)
-		else:
-			vmin_chi2, vmax_chi2 = 0.1, 1.0
-
+	 
 		# Copy colormap and set bad values (NaNs) to black
 		cmap_chi2 = copy.copy(plt.cm.viridis)
 		cmap_chi2.set_bad(color='black')
-		
-		# Plot Chi2 waterfall
-		im1 = ax1.imshow(chi2_array, aspect='auto', cmap=cmap_chi2, 
-						 extent=[0, self.num_bins, 0, self.num_hours], origin='lower',
-						 norm=LogNorm(vmin=vmin_chi2, vmax=vmax_chi2))
-		
+	 
+		if len(valid_chi2_data) > 0:
+			vmin_chi2 = max(np.min(valid_chi2_data), 1e-10)
+			vmax_chi2 = np.max(valid_chi2_data)
+			norm_chi2 = LogNorm(vmin=vmin_chi2, vmax=vmax_chi2)
+	 
+			im1 = ax1.imshow(chi2_array, aspect='auto', cmap=cmap_chi2,
+							 extent=[0, self.num_bins, 0, self.num_hours], origin='lower',
+							 norm=norm_chi2)
+			cbar1 = plt.colorbar(im1, ax=ax1)
+			cbar1.set_label('Chi² Value', fontsize=12)
+		else:
+			im1 = ax1.imshow(chi2_array, aspect='auto', cmap=cmap_chi2,
+							 extent=[0, self.num_bins, 0, self.num_hours], origin='lower',
+							 vmin=0, vmax=max(np.nanmax(chi2_array), 1e-10))
+			cbar1 = plt.colorbar(im1, ax=ax1)
+			cbar1.set_label('Chi² Value (linear — all values ≤ 0)', fontsize=12)
+	 
 		ax1.set_title(f'Chi² - Horn {horn}', fontsize=14, fontweight='bold')
 		ax1.set_xlabel('Frequency Bins', fontsize=12)
 		ax1.set_ylabel('Time (Hours)', fontsize=12)
 		ax1.set_yticks(np.arange(0, self.num_hours + 1, 4))
 		ax1.set_xticks(np.arange(0, self.num_bins + 1, 5))
-		
-		cbar1 = plt.colorbar(im1, ax=ax1)
-		cbar1.set_label('Chi² Value', fontsize=12)
-
+	 
 		if self.calculate_rmse:
-		
-			cmap_rmse = copy.copy(plt.cm.plasma)
+	 
+			cmap_rmse = copy.copy(plt.cm.coolwarm)
 			cmap_rmse.set_bad(color='black')
-			
-			# Plot RMSE waterfall
-			im2 = ax2.imshow(rmse_array, aspect='auto', cmap=cmap_rmse, 
-							 extent=[0, self.num_bins, 0, self.num_hours], origin='lower')
-			
+	 
+			vmax_rmse = np.nanmax(np.abs(rmse_array)) if np.any(~np.isnan(rmse_array)) else 1e-10
+			vmax_rmse = max(vmax_rmse, 1e-10)  # avoid vmin == vmax when all values are 0
+			norm_rmse = TwoSlopeNorm(vcenter=0, vmin=-vmax_rmse, vmax=vmax_rmse)
+	 
+			im2 = ax2.imshow(rmse_array, aspect='auto', cmap=cmap_rmse,
+							 extent=[0, self.num_bins, 0, self.num_hours], origin='lower',
+							 norm=norm_rmse)
+	 
 			ax2.set_title(f'RMSE - Horn {horn}', fontsize=14, fontweight='bold')
 			ax2.set_xlabel('Frequency Bins', fontsize=12)
 			ax2.set_ylabel('Time (Hours)', fontsize=12)
 			ax2.set_yticks(np.arange(0, self.num_hours + 1, 4))
 			ax2.set_xticks(np.arange(0, self.num_bins + 1, 5))
-			
+	 
 			cbar2 = plt.colorbar(im2, ax=ax2)
 			cbar2.set_label('RMSE Value', fontsize=12)
-			
+	 
 		plt.tight_layout()
-
 		output_dir = self.base_waterfall_path
 		os.makedirs(output_dir, exist_ok=True)
-		
+	 
 		output_path = os.path.join(output_dir, f'waterfall_horn{horn}.png')
 		plt.savefig(output_path, dpi=300, bbox_inches='tight')
-		plt.close()
+		plt.close(fig)
+ 
+
 
 	def save_to_hdf5(self):
 		
