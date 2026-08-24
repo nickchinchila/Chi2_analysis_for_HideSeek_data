@@ -23,8 +23,8 @@ analysis_parameters = {
 	"err_data": np.full(36000, 1).tolist(),
 	"dof": None,                                             # optional parameter with standard value "None"
 	"analysis_identifier": 1234,                             # optional parameter with standard value as a random number
-	"show_process_info": True,                               # optional parameter with standard value "False"
-	"rmse": False,                                           # optional parameter with standard value "False"
+	"show_process_info": False, # Not working yet, set False 
+	"rmse": True,                                            # optional parameter with standard value "False"
 	"plot_waterfalls": True,                                 # optional parameter with standard value "False"
 	"horns_to_plot": None,                                   # optional parameter with standard value "None"
 }
