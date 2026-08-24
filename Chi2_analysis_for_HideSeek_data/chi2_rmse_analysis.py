@@ -16,6 +16,7 @@ import numpy as np
 import h5py
 import copy
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from pathlib import Path
 from matplotlib.colors import LogNorm
 from mpi4py import MPI
@@ -460,7 +461,7 @@ class Chi2_for_Hide_Seek_data:
 	 
 			vmax_rmse = np.nanmax(np.abs(rmse_array)) if np.any(~np.isnan(rmse_array)) else 1e-10
 			vmax_rmse = max(vmax_rmse, 1e-10)  # avoid vmin == vmax when all values are 0
-			norm_rmse = TwoSlopeNorm(vcenter=0, vmin=-vmax_rmse, vmax=vmax_rmse)
+			norm_rmse = mcolors.TwoSlopeNorm(vcenter=0, vmin=-vmax_rmse, vmax=vmax_rmse)
 	 
 			im2 = ax2.imshow(rmse_array, aspect='auto', cmap=cmap_rmse,
 							 extent=[0, self.num_bins, 0, self.num_hours], origin='lower',

@@ -32,7 +32,8 @@ analysis_parameters = {
 # Run Chi2_analysis_for_H&S_data library
 run_parallel(analysis_parameters,                         
 				 num_nodes=2,                                # number of nodes you want to use
-				 total_num_process=60)                     # total number of processes you want to run in parallel
+				 total_num_process=60
+				 slurm=False)                     # total number of processes you want to run in parallel
 
 #--------------------------------------------------------------------------------------------------
 # Your code here (can be a serial code or parallel code)
