@@ -241,8 +241,8 @@ class Chi2_for_Hide_Seek_data:
 			
 			# Assuming the same frequency array for both files
 			frequencies = f1['FREQUENCY'][()]   
-			data_TOD1 = f1['P']['Phase1'][:]  # Shape: (n_bins, time)
-			data_TOD2 = f2['P']['Phase1'][:]  # Shape: (n_bins, time)
+			data_TOD1 = f1['P']['Phase0'][:]  # Shape: (n_bins, time)
+			data_TOD2 = f2['P']['Phase0'][:]  # Shape: (n_bins, time)
 
 		chi2_per_hour_bin = np.zeros(self.num_bins)
 		dof_per_hour_bin = np.zeros(self.num_bins)
